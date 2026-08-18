@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import type { Achievement, ChatMessage, StoryResponse } from "@/lib/types";
+import type { StoryStyle } from "@/lib/story-styles";
 import Typewriter from "./Typewriter";
 import Markdown from "./Markdown";
 import TurnIndicator from "./TurnIndicator";
@@ -22,6 +23,7 @@ type Phase = "start" | "loading" | "story" | "ending" | "error";
 export default function Game() {
   const [phase, setPhase] = useState<Phase>("start");
   const [history, setHistory] = useState<ChatMessage[]>([GAME_START]);
+  const [style, setStyle] = useState<StoryStyle | null>(null);
   const [turn, setTurn] = useState(1);
   const [story, setStory] = useState<StoryResponse | null>(null);
   const [lastChoice, setLastChoice] = useState("");
@@ -45,26 +47,29 @@ export default function Game() {
   const endingBusyRef = useRef(false);
 
   // ---- 结局流程：总结 → 按总结发成就 ----
-  const fetchAchievements = useCallback(async (summaryText: string) => {
-    setAchievementsStatus("loading");
-    try {
-      const res = await fetch("/api/achievements", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ summary: summaryText }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok || json.error) {
-        throw new Error(json.error || `请求失败 (HTTP ${res.status})`);
+  const fetchAchievements = useCallback(
+    async (summaryText: string) => {
+      setAchievementsStatus("loading");
+      try {
+        const res = await fetch("/api/achievements", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ summary: summaryText, style }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || json.error) {
+          throw new Error(json.error || `请求失败 (HTTP ${res.status})`);
+        }
+        const list = json.data?.achievements as Achievement[];
+        setAchievements(Array.isArray(list) ? list : []);
+        setAchievementsStatus("done");
+      } catch (e) {
+        setEndingError(e instanceof Error ? e.message : "成就生成失败");
+        setAchievementsStatus("error");
       }
-      const list = json.data?.achievements as Achievement[];
-      setAchievements(Array.isArray(list) ? list : []);
-      setAchievementsStatus("done");
-    } catch (e) {
-      setEndingError(e instanceof Error ? e.message : "成就生成失败");
-      setAchievementsStatus("error");
-    }
-  }, []);
+    },
+    [style]
+  );
 
   const beginEndingFlow = useCallback(
     async (fullHistory: ChatMessage[]) => {
@@ -76,7 +81,7 @@ export default function Game() {
         const res = await fetch("/api/summary", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ history: fullHistory }),
+          body: JSON.stringify({ history: fullHistory, style }),
         });
         const json = await res.json().catch(() => ({}));
         if (!res.ok || json.error) {
@@ -95,7 +100,7 @@ export default function Game() {
         endingBusyRef.current = false;
       }
     },
-    [fetchAchievements]
+    [fetchAchievements, style]
   );
 
   const retryEndingFlow = () => {
@@ -117,7 +122,7 @@ export default function Game() {
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ history: nextHistory, turn: nextTurn }),
+          body: JSON.stringify({ history: nextHistory, turn: nextTurn, style }),
         });
         const json = await res.json().catch(() => ({}));
         if (!res.ok || json.error) {
@@ -151,10 +156,13 @@ export default function Game() {
         busyRef.current = false;
       }
     },
-    [beginEndingFlow]
+    [beginEndingFlow, style]
   );
 
-  const startGame = () => requestStory([GAME_START], 1);
+  const startGame = (s: StoryStyle) => {
+    setStyle(s);
+    requestStory([GAME_START], 1);
+  };
 
   const choose = useCallback(
     (option: string) => {
@@ -177,6 +185,7 @@ export default function Game() {
 
   const restart = () => {
     setHistory([GAME_START]);
+    setStyle(null);
     setTurn(1);
     setStory(null);
     setLastChoice("");
