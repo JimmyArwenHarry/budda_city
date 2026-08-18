@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(textutil -convert txt -stdout \"佛城六巨头列传.docx\")",
+      "Read(//tmp/**)",
+      "Bash(npx --yes create-next-app@latest . --ts --tailwind --eslint --app --no-src-dir --import-alias \"@/*\" --use-npm --yes)"
+    ]
+  }
+}
