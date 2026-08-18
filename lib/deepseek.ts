@@ -18,17 +18,17 @@ const DEEPSEEK_BASE = "https://api.deepseek.com/chat/completions";
 const MAX_ATTEMPTS = 5;
 
 function getApiKey(): string {
-  const key = process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY?.trim();
+  const key = process.env.DEEPSEEK_API_KEY?.trim();
   if (!key) {
     throw new Error(
-      "缺少 API Key：请在环境变量中配置 NEXT_PUBLIC_DEEPSEEK_API_KEY"
+      "缺少 API Key：请在环境变量中配置 DEEPSEEK_API_KEY"
     );
   }
   return key;
 }
 
 function getModel(): string {
-  return process.env.NEXT_PUBLIC_DEEPSEEK_MODEL?.trim() || "deepseek-v4-flash";
+  return process.env.DEEPSEEK_MODEL?.trim() || "deepseek-v4-flash";
 }
 
 /* ================================================================
@@ -219,7 +219,7 @@ async function singleCall(
     const status = res.status;
     if (status === 401) {
       throw new Error(
-        "API Key 无效或已过期，请检查 NEXT_PUBLIC_DEEPSEEK_API_KEY"
+        "API Key 无效或已过期，请检查 DEEPSEEK_API_KEY"
       );
     }
     if (status === 429) {

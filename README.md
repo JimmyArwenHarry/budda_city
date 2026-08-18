@@ -43,12 +43,12 @@ npm run build && npm start
 
 | 变量 | 说明 | 示例 |
 | --- | --- | --- |
-| `NEXT_PUBLIC_DEEPSEEK_API_KEY` | DeepSeek API Key（**必填**） | `sk-xxxx` |
-| `NEXT_PUBLIC_DEEPSEEK_MODEL` | 模型名（可选） | `deepseek-v4-flash` |
+| `DEEPSEEK_API_KEY` | DeepSeek API Key（**必填**） | `sk-xxxx` |
+| `DEEPSEEK_MODEL` | 模型名（可选） | `deepseek-v4-flash` |
 
 > 🔒 **安全说明**：API Key 由服务端代理路由（`app/api/chat/route.ts`）读取，
-> **不会被打包进浏览器端代码**。虽然变量名带 `NEXT_PUBLIC_` 前缀，
-> 但它只被服务端代码引用，前端拿不到真实 Key。
+> **不会被打包进浏览器端代码**。变量名不带 `NEXT_PUBLIC_` 前缀，
+> 不会被 Next.js 内联进前端 bundle，前端拿不到真实 Key。
 
 ## 🌍 部署（免费）
 
@@ -56,8 +56,8 @@ npm run build && npm start
 1. 把项目推到 GitHub/GitLab
 2. 在 [vercel.com/new](https://vercel.com/new) 导入仓库
 3. 在项目设置 → Environment Variables 中填入：
-   - `NEXT_PUBLIC_DEEPSEEK_API_KEY`
-   - `NEXT_PUBLIC_DEEPSEEK_MODEL`（可选）
+   - `DEEPSEEK_API_KEY`
+   - `DEEPSEEK_MODEL`（可选）
 4. Deploy 即可，自动识别 Next.js，开箱即用
 
 ### Netlify
@@ -119,4 +119,4 @@ budda_city/
 ## 🖋 自定义
 
 想调整剧情风格或世界观？直接编辑 `lib/system-prompt.ts`。
-想换模型？改环境变量 `NEXT_PUBLIC_DEEPSEEK_MODEL`。
+想换模型？改环境变量 `DEEPSEEK_MODEL`。
