@@ -46,7 +46,24 @@
       "Bash(gh auth *)",
       "Bash(git config *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(brew install *)",
+      "Bash(gh --version)",
+      "Bash(gh repo *)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(vercel --version)",
+      "Bash(npx --yes vercel --version)",
+      "Bash(npx --yes vercel --prod --yes)",
+      "Bash(npx --yes vercel env ls production)",
+      "Bash(npx --yes vercel env rm NEXT_PUBLIC_DEEPSEEK_API_KEY production --yes)",
+      "Bash(npx --yes vercel env rm NEXT_PUBLIC_DEEPSEEK_MODEL production --yes)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}  \\(%{time_total}s\\)\\\\n\" https://buddacity.vercel.app/)",
+      "Bash(curl -s https://buddacity.vercel.app/)",
+      "Bash(grep -oE \"<title>[^<]*</title>|佛城[^<]{0,20}\")",
+      "Bash(curl -s -X POST https://buddacity.vercel.app/api/chat -H \"Content-Type: application/json\" -d '{\"history\":[{\"role\":\"user\",\"content\":\"我是一名无名小卒，刚踏入佛城。\"}],\"turn\":1}' --max-time 120)",
+      "Bash(python3 -c ' *)"
     ]
   }
 }

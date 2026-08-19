@@ -3,9 +3,11 @@
 interface TurnIndicatorProps {
   turn: number; // 1..20
   total: number; // 20
+  /** 左侧标题（默认佛城风云；金庸江湖可传"江湖录"等） */
+  title?: string;
 }
 
-export default function TurnIndicator({ turn, total }: TurnIndicatorProps) {
+export default function TurnIndicator({ turn, total, title = "佛城风云" }: TurnIndicatorProps) {
   const pct = Math.max(0, Math.min(1, turn / total)) * 100;
   const isFinale = turn >= total;
 
@@ -13,7 +15,7 @@ export default function TurnIndicator({ turn, total }: TurnIndicatorProps) {
     <div className="w-full">
       <div className="mb-1.5 flex items-baseline justify-between">
         <span className="font-mono text-[11px] uppercase tracking-[0.25em] text-ghost">
-          {isFinale ? "⚡ 最终回合" : "▚ 佛城风云"}
+          {isFinale ? "⚡ 最终回合" : `▚ ${title}`}
         </span>
         <span
           className={`font-mono text-sm font-bold tabular-nums ${
