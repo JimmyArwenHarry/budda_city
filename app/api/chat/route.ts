@@ -2,28 +2,35 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildSystemPrompt } from "@/lib/system-prompt";
 import { callDeepSeek } from "@/lib/deepseek";
 import { isStoryStyle, styleLabel, type StoryStyle } from "@/lib/story-styles";
+import { giantLabel, isGiantKey, type GiantKey } from "@/lib/giants";
 import type { ChatMessage, StoryResponse } from "@/lib/types";
 
 export const runtime = "nodejs";
 // Vercel Hobby 函数最长 60s；DeepSeek 推理通常 5~15s，足够
 export const maxDuration = 60;
 
-const TOTAL_TURNS = 13;
+const TOTAL_TURNS = 10;
 
 interface RequestBody {
   /** 历史对话（不含 system），role ∈ user | assistant */
   history?: ChatMessage[];
-  /** 当前生成序号：1~13 为剧情回合，13 为结局结算 */
+  /** 当前生成序号：1~10 为剧情回合，10 为结局结算 */
   turn?: number;
   /** 开局选择的剧情风格（可选） */
   style?: unknown;
+  /** 测字测得的第一位巨头 key（可选） */
+  firstGiant?: unknown;
 }
 
 /** 普通剧情回合指令：正文 + * 选项列表（不要求 JSON，规避 json_object 空白问题） */
-function storyInstruction(turn: number, style?: StoryStyle): string {
+function storyInstruction(turn: number, style?: StoryStyle, firstGiant?: GiantKey): string {
   const finaleNote =
-    turn === 12
-      ? "\n注意：turn=12 是最终大高潮，剧情要迎来六巨头佛城大混战、天翻地覆的终极清算，但仍需给出 3 个选项。"
+    turn === 9
+      ? "\n注意：turn=9 是最终大高潮，剧情要迎来六巨头佛城大混战、天翻地覆的终极清算，但仍需给出 3 个选项。"
+      : "";
+  const giantNote =
+    turn === 1 && firstGiant
+      ? `\n（本局你的测字缘主是「${giantLabel(firstGiant)}」，游戏开场必须从遇见这位巨头写起，由他引出佛城与其余巨头。）`
       : "";
   const styleNote = style
     ? `\n（本局风格：${styleLabel(style)}。剧情、场景、人物台词与选项须鲜明体现该风格，请勿沿用与现代设定冲突的内容。）`
@@ -34,7 +41,8 @@ function storyInstruction(turn: number, style?: StoryStyle): string {
     `然后在最后单独列出 3 个选项，每个选项单独一行并以 * 开头。` +
     `不要JSON，不要markdown标题，不要多余的说明文字。` +
     finaleNote +
-    styleNote
+    styleNote +
+    giantNote
   );
 }
 
@@ -62,8 +70,9 @@ export async function POST(req: NextRequest) {
 
   const history = Array.isArray(body.history) ? body.history : [];
   const turn = Number(body.turn) || 1;
-  // 非法风格宽容处理：视为未选（走默认基底），不 400
+  // 非法风格/巨头宽容处理：视为未选（走默认基底），不 400
   const style = isStoryStyle(body.style) ? body.style : undefined;
+  const firstGiant = isGiantKey(body.firstGiant) ? body.firstGiant : undefined;
 
   if (history.length === 0 && turn === 1) {
     return NextResponse.json({ error: "缺少对话历史" }, { status: 400 });
@@ -76,9 +85,9 @@ export async function POST(req: NextRequest) {
   // 若最后一条是 system 消息会返回空白 content，实测 100% 失败）
   const turnInstruction = isEnding
     ? endingInstruction(style)
-    : storyInstruction(turn, style);
+    : storyInstruction(turn, style, firstGiant);
   const messages: ChatMessage[] = [
-    { role: "system", content: buildSystemPrompt(style) },
+    { role: "system", content: buildSystemPrompt(style, firstGiant) },
     ...history,
     { role: "user", content: turnInstruction },
   ];

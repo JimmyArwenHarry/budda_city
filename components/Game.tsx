@@ -3,14 +3,16 @@
 import { useCallback, useRef, useState } from "react";
 import type { Achievement, ChatMessage, StoryResponse } from "@/lib/types";
 import type { StoryStyle } from "@/lib/story-styles";
+import type { GiantKey } from "@/lib/giants";
 import Typewriter from "./Typewriter";
 import Markdown from "./Markdown";
 import TurnIndicator from "./TurnIndicator";
 import Loading from "./Loading";
 import StartScreen from "./StartScreen";
+import DivinationScreen from "./DivinationScreen";
 import EndingView from "./EndingView";
 
-const TOTAL_TURNS = 13;
+const TOTAL_TURNS = 10;
 const NUM_CHIPS = ["①", "②", "③", "④"];
 
 const GAME_START: ChatMessage = {
@@ -18,12 +20,13 @@ const GAME_START: ChatMessage = {
   content: "游戏开始：我，一个无名小卒，背着行囊踏进了佛城的城门。",
 };
 
-type Phase = "start" | "loading" | "story" | "ending" | "error";
+type Phase = "start" | "divination" | "loading" | "story" | "ending" | "error";
 
 export default function Game() {
   const [phase, setPhase] = useState<Phase>("start");
   const [history, setHistory] = useState<ChatMessage[]>([GAME_START]);
   const [style, setStyle] = useState<StoryStyle | null>(null);
+  const [firstGiant, setFirstGiant] = useState<GiantKey | null>(null);
   const [turn, setTurn] = useState(1);
   const [story, setStory] = useState<StoryResponse | null>(null);
   const [lastChoice, setLastChoice] = useState("");
@@ -54,7 +57,7 @@ export default function Game() {
         const res = await fetch("/api/achievements", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ summary: summaryText, style }),
+          body: JSON.stringify({ summary: summaryText, style, firstGiant }),
         });
         const json = await res.json().catch(() => ({}));
         if (!res.ok || json.error) {
@@ -68,7 +71,7 @@ export default function Game() {
         setAchievementsStatus("error");
       }
     },
-    [style]
+    [style, firstGiant]
   );
 
   const beginEndingFlow = useCallback(
@@ -81,7 +84,7 @@ export default function Game() {
         const res = await fetch("/api/summary", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ history: fullHistory, style }),
+          body: JSON.stringify({ history: fullHistory, style, firstGiant }),
         });
         const json = await res.json().catch(() => ({}));
         if (!res.ok || json.error) {
@@ -100,7 +103,7 @@ export default function Game() {
         endingBusyRef.current = false;
       }
     },
-    [fetchAchievements, style]
+    [fetchAchievements, style, firstGiant]
   );
 
   const retryEndingFlow = () => {
@@ -122,7 +125,12 @@ export default function Game() {
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ history: nextHistory, turn: nextTurn, style }),
+          body: JSON.stringify({
+            history: nextHistory,
+            turn: nextTurn,
+            style,
+            firstGiant,
+          }),
         });
         const json = await res.json().catch(() => ({}));
         if (!res.ok || json.error) {
@@ -156,11 +164,19 @@ export default function Game() {
         busyRef.current = false;
       }
     },
-    [beginEndingFlow, style]
+    [beginEndingFlow, style, firstGiant]
   );
 
+  // 选择风格后进入测字环节，不直接开局
   const startGame = (s: StoryStyle) => {
     setStyle(s);
+    setFirstGiant(null);
+    setPhase("divination");
+  };
+
+  // 测字完成：带着第一位巨头真正开局
+  const startStory = (g: GiantKey) => {
+    setFirstGiant(g);
     requestStory([GAME_START], 1);
   };
 
@@ -186,6 +202,7 @@ export default function Game() {
   const restart = () => {
     setHistory([GAME_START]);
     setStyle(null);
+    setFirstGiant(null);
     setTurn(1);
     setStory(null);
     setLastChoice("");
@@ -203,7 +220,7 @@ export default function Game() {
   return (
     <div className="relative mx-auto flex min-h-dvh w-full max-w-xl flex-col px-4 pb-16 pt-5 sm:pt-8">
       {/* 顶部回合指示器 */}
-      {phase !== "start" && (
+      {phase !== "start" && phase !== "divination" && (
         <header className="sticky top-0 z-30 -mx-4 mb-5 bg-night/80 px-4 py-3 backdrop-blur">
           <TurnIndicator turn={Math.min(turn, TOTAL_TURNS)} total={TOTAL_TURNS} />
         </header>
@@ -211,6 +228,17 @@ export default function Game() {
 
       <main className="flex flex-1 flex-col">
         {phase === "start" && <StartScreen onStart={startGame} />}
+        {phase === "divination" && style && (
+          <DivinationScreen
+            style={style}
+            onStart={startStory}
+            onBack={() => {
+              setStyle(null);
+              setFirstGiant(null);
+              setPhase("start");
+            }}
+          />
+        )}
         {phase === "loading" && <Loading />}
         {phase === "error" && <ErrorView msg={errorMsg} onRetry={retry} onRestart={restart} />}
         {phase === "story" && story && (
@@ -268,7 +296,7 @@ function StoryView({
   onDone,
   onChoose,
 }: StoryViewProps) {
-  const isFinale = turn >= 12;
+  const isFinale = turn >= 9;
   return (
     <div className="animate-float-up flex flex-col gap-4">
       {/* 回合标签 */}

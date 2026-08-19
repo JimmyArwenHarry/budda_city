@@ -32,7 +32,7 @@ export default function StartScreen({ onStart }: StartScreenProps) {
         <p className="mt-1 text-xl font-bold text-ice">六巨头列传</p>
         <p className="mx-auto mt-4 max-w-xs text-sm leading-6 text-ghost">
           你，一个无名小卒，背着行囊踏进了佛城。
-          这里有阴毛、有肉夹馍、有买办，也有十三回合的生死荒诞。
+          这里有阴毛、有肉夹馍、有买办，也有十回合的生死荒诞。
         </p>
       </div>
 
@@ -88,7 +88,7 @@ export default function StartScreen({ onStart }: StartScreenProps) {
       </button>
 
       <p className="text-[11px] text-ghost/50">
-        共 13 回合 · AI 实时生成剧情 · 结局与成就由你的选择决定
+        共 10 回合 · AI 实时生成剧情 · 结局与成就由你的选择决定
       </p>
     </div>
   );

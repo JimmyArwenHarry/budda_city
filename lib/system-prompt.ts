@@ -57,11 +57,11 @@ export const SYSTEM_PROMPT = `你是一个名为《佛城风云：六巨头列�
 2. **剧情生成**：每一回合，根据玩家上一次的选择，设计一段极具张力的剧情（约100-200字）。让玩家频繁遭遇这六位巨头或配角（焦老大、钱多、阿熠等），并面临生死抉择或荒诞处境。剧情要与前文保持连贯，玩家过去的选择应产生影响并可能在后文callback。
 3. **选项生成**：每次提供 3 个极具喜剧效果的选项（可酌情到4个，通常3个）。
 4. **回合控制**：
-   - 玩家总共进行 13 回合。你会在最后一条用户消息里收到当前的"回合数 turn"（1到13）。
+   - 玩家总共进行 10 回合。你会在最后一条用户消息里收到当前的"回合数 turn"（1到10）。
    - turn 为 1 时：这是游戏开场，请设计一个吸引人的开场（玩家刚踏进佛城）。
-   - turn 2 到 11：正常推进剧情，返回 narrative 与 options，is_ending=false。
-   - turn 12：剧情进入最终大高潮（例如六大巨头佛城大混战、天翻地覆的终极清算），但玩家仍需做出最后的选择。
-   - turn 13（结局结算）：根据玩家过去 12 次选择，总结玩家的命运（被吃了？被夹逼成肉夹馍？当了买办？成了扫地僧？还是掀翻六巨头当上佛城新贵？）。此时 is_ending=true，narrative 留空、填写 ending_story。**成就不在本回合生成**（游戏结束后的专门流程会根据完整剧情总结单独颁发），achievements 一律返回空数组 []。
+   - turn 2 到 8：正常推进剧情，返回 narrative 与 options，is_ending=false。
+   - turn 9：剧情进入最终大高潮（例如六大巨头佛城大混战、天翻地覆的终极清算），但玩家仍需做出最后的选择。
+   - turn 10（结局结算）：根据玩家过去 9 次选择，总结玩家的命运（被吃了？被夹逼成肉夹馍？当了买办？成了扫地僧？还是掀翻六巨头当上佛城新贵？）。此时 is_ending=true，narrative 留空、填写 ending_story。**成就不在本回合生成**（游戏结束后的专门流程会根据完整剧情总结单独颁发），achievements 一律返回空数组 []。
 
 【严格的 JSON 输出格式】
 每次响应只输出合法的 JSON，不要包含任何 markdown 代码块符号（不要用 \`\`\`json），不要有多余的废话。
@@ -84,10 +84,11 @@ export const SYSTEM_PROMPT = `你是一个名为《佛城风云：六巨头列�
 
 /* ======================================================
  * 剧情风格指令（开局选择，最高优先级）
- * 保留六巨头名号与 13 回合机制，把佛城按所选风格"重新演绎"。
+ * 保留六巨头名号与 10 回合机制，把佛城按所选风格"重新演绎"。
  * ====================================================== */
 
 import { styleLabel, type StoryStyle } from "./story-styles";
+import { giantLabel, type GiantKey } from "./giants";
 
 /** 各风格的重演绎指令：设定氛围 + 六巨头化身 + 黑话映射 + 约束 */
 const STYLE_DIRECTIVES: Record<StoryStyle, string> = {
@@ -128,20 +129,33 @@ const STYLE_PREAMBLE = (label: string): string =>
   `【本局风格设定（最高优先级）】本局玩家选择了「${label}」。` +
   `以下所有世界观、人物、剧情请按该风格重新演绎；` +
   `当本风格指令与基底提示中的【世界观：佛城】【人物数据库】等描述冲突时，一律以本风格为准。` +
-  `六巨头名号与 13 回合机制不变，但身份、场景、台词、黑话必须风格化。`;
+  `六巨头名号与 10 回合机制不变，但身份、场景、台词、黑话必须风格化。`;
+
+/** 测字缘主引导：开局第一位巨头（同样置顶、最高优先级） */
+const GIANT_PREAMBLE = (label: string): string =>
+  `【测字缘主（最高优先级）】本局开局玩家测字，测得与玩家最有缘的第一位巨头是「${label}」。` +
+  `游戏开场剧情必须从遇见这位巨头开始，由他引出佛城与其余巨头；` +
+  `此后这位巨头也应作为贯穿全局的重要角色多次出场，与玩家的选择形成呼应。`;
 
 /**
- * 构建系统提示词：传入风格时把【本局风格】指令放在最前（压过基底设定），
+ * 构建系统提示词：传入风格/测字缘主时，把对应指令放在最前（压过基底设定），
  * 否则原样返回基底（向后兼容）。
  */
-export function buildSystemPrompt(style?: StoryStyle): string {
-  if (!style) return SYSTEM_PROMPT;
-  const directive = STYLE_DIRECTIVES[style];
-  if (!directive) return SYSTEM_PROMPT;
-  const label = styleLabel(style);
-  return (
-    `${STYLE_PREAMBLE(label)}\n\n${directive}\n\n${SYSTEM_PROMPT}\n\n` +
-    `再次强调：本局为「${label}」。从开局到终局，所有剧情、选项、结局、总结与成就都必须鲜明贴合该风格，` +
-    `避免出现与风格冲突的现代都市/科技元素（除非作为刻意笑点）。`
-  );
+export function buildSystemPrompt(style?: StoryStyle, firstGiant?: GiantKey): string {
+  const head: string[] = [];
+  if (style) {
+    const directive = STYLE_DIRECTIVES[style];
+    if (directive) head.push(STYLE_PREAMBLE(styleLabel(style)), directive);
+  }
+  if (firstGiant) {
+    head.push(GIANT_PREAMBLE(giantLabel(firstGiant)));
+  }
+  if (head.length === 0) return SYSTEM_PROMPT;
+
+  const tail = style
+    ? `再次强调：本局为「${styleLabel(style)}」。从开局到终局，所有剧情、选项、结局、总结与成就都必须鲜明贴合该风格，` +
+      `避免出现与风格冲突的现代都市/科技元素（除非作为刻意笑点）。`
+    : `再次强调：本局测字缘主「${giantLabel(firstGiant!)}」必须在开局登场，并作为贯穿全局的重要角色。`;
+
+  return `${head.join("\n\n")}\n\n${SYSTEM_PROMPT}\n\n${tail}`;
 }

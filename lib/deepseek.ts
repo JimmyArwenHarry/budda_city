@@ -12,6 +12,11 @@
 //    用下方的容错解析器即可稳定还原为 JSON 契约。
 
 import type { Achievement, ChatMessage } from "./types";
+import {
+  matchGiantKey,
+  randomGiantKey,
+  type GiantKey,
+} from "./giants";
 
 const DEEPSEEK_BASE = "https://api.deepseek.com/chat/completions";
 
@@ -364,4 +369,87 @@ export async function callAchievements(
     if (attempt < MAX_ATTEMPTS - 1) current = [...current, nudge(attempt + 1)];
   }
   throw lastErr instanceof Error ? lastErr : new Error("成就生成失败，请稍后重试");
+}
+
+/* ================================================================
+ * 测字：根据玩家写的一个字，从六巨头中选出最有缘的一位
+ * ================================================================ */
+
+/** 解析测字输出：优先当 JSON；否则按"第一行巨头key + 剩余为点评"解析 */
+function parseDivinationContent(content: string): {
+  giantKey: GiantKey;
+  reading: string;
+} | null {
+  // 1) JSON 形态（模型偶发输出）
+  try {
+    const raw = extractJson(content);
+    const obj = (raw ?? {}) as Record<string, unknown>;
+    const giantRaw =
+      typeof obj.giant === "string"
+        ? obj.giant
+        : typeof obj.giant_key === "string"
+          ? obj.giant_key
+          : "";
+    if (giantRaw) {
+      const key = matchGiantKey(giantRaw);
+      if (key) {
+        const reading =
+          typeof obj.reading === "string" ? obj.reading.trim() : "";
+        return { giantKey: key, reading };
+      }
+    }
+  } catch {
+    /* 不是 JSON，走行解析 */
+  }
+
+  // 2) 行解析：第一行是巨头 key/名，剩余为点评
+  const lines = content
+    .split(/\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return null;
+  const key =
+    matchGiantKey(lines[0]) ?? matchGiantKey(content.slice(0, 40));
+  if (!key) return null;
+  const reading = lines.slice(1).join("\n").trim();
+  return { giantKey: key, reading };
+}
+
+/** 测字：返回 { giantKey, reading }。空白/无 key 时追加 nudge 重试，最终兜底随机巨头。 */
+export async function callDivination(
+  messages: ChatMessage[],
+  opts: DeepSeekOptions = {}
+): Promise<{ giantKey: GiantKey; reading: string }> {
+  const { maxTokens = 500 } = opts;
+
+  const nudge = (attempt: number): ChatMessage => ({
+    role: "user",
+    content:
+      `⚠️【自动重试·第 ${attempt} 次】只输出两行：` +
+      `第一行是巨头key（必须是 ma / ao / miao / lin / lang / shuai 之一），` +
+      `第二行是 60 字以内的测字点评。不要JSON，不要编号，不要多余文字。`,
+  });
+
+  let lastErr: unknown = null;
+  let current: ChatMessage[] = messages;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const content = await singleCall(current, maxTokens);
+    if (!content.trim()) {
+      lastErr = new Error("模型返回内容为空");
+      if (attempt < MAX_ATTEMPTS - 1) current = [...current, nudge(attempt + 1)];
+      continue;
+    }
+    const parsed = parseDivinationContent(content);
+    if (parsed) {
+      return parsed;
+    }
+    lastErr = new Error("模型输出缺少有效的巨头 key");
+    if (attempt < MAX_ATTEMPTS - 1) current = [...current, nudge(attempt + 1)];
+  }
+  // 兜底：随机选一位巨头（尽量让玩家能继续）
+  const fallbackKey = randomGiantKey();
+  return {
+    giantKey: fallbackKey,
+    reading: "（测字灵机一瞬未能辨清，天意让福缘落在此处。）",
+  };
 }

@@ -92,7 +92,7 @@ export default function EndingView({
   const buildShareText = () => {
     const lines = [
       "🏆【佛城风云：六巨头列传】我的最终命运",
-      "在佛城与六巨头周旋 13 回合后，我……",
+      "在佛城与六巨头周旋 10 回合后，我……",
       "",
     ];
     if (summaryReady) {
@@ -105,7 +105,7 @@ export default function EndingView({
       cards.forEach((c, i) => lines.push(`${i + 1}. ${c.emoji} ${c.title} — ${c.desc}`));
       lines.push("");
     }
-    lines.push("你也来试试？看你能否活过 13 回合。");
+    lines.push("你也来试试？看你能否活过 10 回合。");
     return lines.join("\n");
   };
 
@@ -153,7 +153,7 @@ export default function EndingView({
           你的命运，已尘埃落定
         </h2>
         <div className="mt-3 font-mono text-xs text-ghost">
-          13 / 13 回合 · 六巨头混战落幕
+          10 / 10 回合 · 六巨头混战落幕
         </div>
       </div>
 
