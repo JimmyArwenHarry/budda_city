@@ -10,10 +10,6 @@
   --color-plasma: #b967ff;     /* 成就紫 */
   --color-ghost: #8a97c0;      /* 次要文字 */
   --color-ice: #e6f4ff;        /* 主文字 */
-  /* ---- 金庸江湖主题（《江湖录》）---- */
-  --color-vermillion: #d0452f; /* 朱砂红 */
-  --color-gold: #d7b25c;       /* 鎏金 */
-  --color-parchment: #efe6d0;  /* 宣纸米白 */
 }
 
 /* ============ 全局底色 ============ */
@@ -117,45 +113,6 @@ body {
 }
 .md-body del {
   color: #5b6b8c;
-}
-
-/* ============ 金庸江湖主题的 Markdown 变体（墨/朱砂/鎏金） ============ */
-.md-body--wuxia {
-  font-size: 15px;
-  line-height: 2;
-  color: var(--color-parchment);
-}
-.md-body--wuxia strong {
-  color: var(--color-gold);
-  font-weight: 700;
-}
-.md-body--wuxia em {
-  color: var(--color-vermillion);
-  font-style: italic;
-}
-.md-body--wuxia blockquote {
-  border-left: 3px solid var(--color-vermillion);
-  background: rgba(208, 69, 47, 0.08);
-  color: #e6dcc6;
-}
-.md-body--wuxia h1,
-.md-body--wuxia h2,
-.md-body--wuxia h3 {
-  color: var(--color-gold);
-}
-.md-body--wuxia a {
-  color: var(--color-gold);
-}
-.md-body--wuxia hr {
-  background: linear-gradient(90deg, transparent, rgba(215, 178, 92, 0.4), transparent);
-}
-
-/* 鎏金 / 朱砂 发光文字 */
-.glow-gold {
-  text-shadow: 0 0 10px rgba(215, 178, 92, 0.7), 0 0 28px rgba(215, 178, 92, 0.35);
-}
-.glow-red {
-  text-shadow: 0 0 10px rgba(208, 69, 47, 0.7), 0 0 28px rgba(208, 69, 47, 0.35);
 }
 
 /* ============ 动画 ============ */

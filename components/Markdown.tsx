@@ -5,15 +5,12 @@ import remarkGfm from "remark-gfm";
 
 interface MarkdownProps {
   children: string;
-  /** 变体：wuxia 使用墨/朱砂/鎏金的 .md-body--wuxia 样式（默认赛博荧光绿） */
-  variant?: "cyber" | "wuxia";
 }
 
 /** Markdown 渲染（样式见 globals.css 的 .md-body） */
-export default function Markdown({ children, variant = "cyber" }: MarkdownProps) {
-  const cls = variant === "wuxia" ? "md-body md-body--wuxia" : "md-body";
+export default function Markdown({ children }: MarkdownProps) {
   return (
-    <div className={cls}>
+    <div className="md-body">
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
     </div>
   );

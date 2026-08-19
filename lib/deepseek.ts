@@ -183,9 +183,8 @@ function parseAchievementsContent(content: string): Achievement[] {
  * 单次调用
  * ================================================================ */
 
-/** 单次调用，返回原始 content 字符串（不使用 response_format，规避空白输出）
- *  导出供其他剧本（如 lib/jinyong.ts）复用 */
-export async function singleCall(
+/** 单次调用，返回原始 content 字符串（不使用 response_format，规避空白输出） */
+async function singleCall(
   messages: ChatMessage[],
   maxTokens = 1500
 ): Promise<string> {
