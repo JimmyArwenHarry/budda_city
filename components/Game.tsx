@@ -20,6 +20,10 @@ const GAME_START: ChatMessage = {
   content: "游戏开始：我，一个无名小卒，背着行囊踏进了佛城的城门。",
 };
 
+/** 模型偶发 0 选项时，供"续行"安全网使用的兜底选择 */
+const FALLBACK_CHOICE =
+  "（情势陡变，我按自己的性子见机行事，先走一步看一步。）";
+
 type Phase = "start" | "divination" | "loading" | "story" | "ending" | "error";
 
 export default function Game() {
@@ -187,6 +191,10 @@ export default function Game() {
         ...history,
         { role: "user", content: option },
       ];
+      // 立即把玩家的选择写进 history——此前只追加 assistant 剧情，
+      // 导致第 3 回合起发给模型的对话缺了选择、变得错乱（user,assistant,assistant…），
+      // 这是"第 4 回合选项消失、卡死"的根源之一。
+      setHistory(nextHistory);
       setLastChoice(option);
       requestStory(nextHistory, turn + 1);
     },
@@ -362,6 +370,17 @@ function StoryView({
             {opt}
           </button>
         ))}
+        {/* 安全网：非结局却一个选项都没有时，绝不卡死玩家 */}
+        {!story.is_ending && story.options.length === 0 && (
+          <button
+            disabled={!doneTyping}
+            onClick={() => onChoose(FALLBACK_CHOICE)}
+            className="option-btn min-h-[48px] w-full rounded-xl border-2 border-neon/60 bg-neon/10 px-4 py-3 text-left text-[15px] leading-6 text-ice"
+          >
+            <span className="mr-2 font-mono text-neon">☍</span>
+            风云突变 · 且行且看，续走剧情 ▸
+          </button>
+        )}
         {!doneTyping && (
           <p className="animate-blink text-center text-xs text-ghost/60">
             剧情播放中，请稍候…

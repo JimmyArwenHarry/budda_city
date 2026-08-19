@@ -79,24 +79,27 @@ export function extractJson(text: string): unknown {
   throw new Error("模型返回的不是合法 JSON：" + text.slice(0, 200));
 }
 
-/** 从结构化正文中提取选项行（支持 * 、- 、• 、1. 、① 等前缀） */
+/** 选项行前缀：* - •、1. 1、①（一）(1) 一、选项一 等 */
+const OPTION_PREFIX_RE =
+  /^(?:[*\-•]\s+|[①-⑳]\s*|[0-9一二三四五六七八九十]+[.、,，)）]\s*|[（(][0-9一二三四五六七八九十]+[)）]\s*|选项[一二三四五六七八九十A-Za-z][:：]?\s*)/;
+
+/** 从结构化正文中提取选项行（兼容 *、-、•、1.、①、（一）、一、选项一 及 **加粗** 包裹） */
 function extractOptionLines(text: string): string[] {
-  return text
-    .split(/\n/)
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0)
-    .filter((l) => /^[*\-•]\s+/.test(l) || /^\d+[.、)]\s+/.test(l) || /^[①-④]/.test(l))
-    .map((l) =>
-      l
-        .replace(/^[*\-•]\s+/, "")
-        .replace(/^\d+[.、)]\s+/, "")
-        .replace(/^[①-④]\s*/, "")
-        .trim()
-    )
-    .filter((l) => l.length > 0);
+  const out: string[] = [];
+  for (const raw of text.split(/\n/)) {
+    let line = raw.trim();
+    if (!line) continue;
+    // 去掉成对的加粗/斜体包裹（模型常把选项写成 **一、xxx** 或 * xxx *）
+    const wrap = line.match(/^(\*{1,2}|_{1,2})([\s\S]+?)\1$/);
+    if (wrap && wrap[2]) line = wrap[2].trim();
+    if (!OPTION_PREFIX_RE.test(line)) continue;
+    const cleaned = line.replace(OPTION_PREFIX_RE, "").trim();
+    if (cleaned) out.push(cleaned);
+  }
+  return out;
 }
 
-/** 解析剧情输出：优先当 JSON；否则按"正文 + * 选项列表"解析 */
+/** 解析剧情输出：优先当 JSON；否则按"正文 + 选项列表"解析 */
 function parseStoryContent(content: string): {
   narrative: string;
   options: string[];
@@ -114,9 +117,9 @@ function parseStoryContent(content: string): {
     /* 不是 JSON，走正文解析 */
   }
 
-  // 2) 正文 + 选项列表
+  // 2) 正文 + 选项列表（首条"像选项的行"之前是正文）
   const lines = content.split(/\n/);
-  const firstBullet = lines.findIndex((l) => /^\s*[*\-•]\s+/.test(l));
+  const firstBullet = lines.findIndex((l) => OPTION_PREFIX_RE.test(l.trim()));
   if (firstBullet !== -1) {
     const narrative = lines.slice(0, firstBullet).join("\n").trim();
     const options = extractOptionLines(content);
@@ -273,6 +276,8 @@ export async function callDeepSeek(
 
   let lastErr: unknown = null;
   let current: ChatMessage[] = messages;
+  let lastNarrative = "";
+  let lastOptions: string[] = [];
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const content = await singleCall(current, maxTokens);
     if (!content.trim()) {
@@ -281,17 +286,43 @@ export async function callDeepSeek(
       continue;
     }
     const { narrative, options } = parseStoryContent(content);
+    // 记住最近一次有效正文，供兜底使用
+    if (narrative.trim()) {
+      lastNarrative = narrative;
+      lastOptions = options;
+    }
     if (narrative.trim() && (options.length >= 2 || !requireOptions)) {
       return { narrative, options };
     }
     lastErr = new Error("模型输出缺少剧情或选项");
     if (attempt < MAX_ATTEMPTS - 1) current = [...current, nudge(attempt + 1)];
   }
-  // 兜底：解析最后一轮的正文（哪怕没有选项），保证玩家能继续
-  const lastContent = await singleCall(current, maxTokens).catch(() => "");
-  const last = parseStoryContent(lastContent || "");
-  if (last.narrative.trim()) {
-    return { narrative: last.narrative, options: last.options };
+
+  // 兜底：正文已到手但选项始终不足时，单独补一次"只输出选项"（不重复正文）
+  if (requireOptions && lastNarrative) {
+    const recoveryMsg: ChatMessage = {
+      role: "user",
+      content:
+        `【补全选项】你刚才的剧情正文可用，现在只需要列选项：` +
+        `另起一行、以 * 开头逐行列出 3 个选项。不要重复正文，不要JSON，不要其他文字。`,
+    };
+    const recov = await singleCall([...current, recoveryMsg], 800).catch(() => "");
+    const parsed = parseStoryContent(recov || "");
+    if (parsed.options.length > 0) {
+      return { narrative: lastNarrative, options: parsed.options.slice(0, 4) };
+    }
+    // 补选仍无果，但本轮已解析出少量选项 → 保底返回
+    if (lastOptions.length > 0) {
+      return { narrative: lastNarrative, options: lastOptions.slice(0, 4) };
+    }
+  }
+
+  // 最坏情况：保底返回正文（客户端另有"续行"安全网，玩家不会卡死）
+  if (lastNarrative) {
+    console.warn("[deepseek] 选项始终解析不出，返回仅正文（客户端将走安全网）", {
+      len: lastNarrative.length,
+    });
+    return { narrative: lastNarrative, options: lastOptions.slice(0, 4) };
   }
   throw lastErr instanceof Error
     ? lastErr
